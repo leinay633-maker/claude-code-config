@@ -77,6 +77,8 @@
   .card.gone { opacity: 0.5; }
   .spd .idle { color: var(--ov); }
   
+  /* Codex 和 Packy 各自渲染进自己的容器，容器不占格子，两张卡排进同一个网格 */
+  .slot { display: contents; }
   .foot { margin-top: auto; color: var(--ov); font-size: 12px; border-top: 1px solid var(--s0); padding-top: 8px; }
   .empty { color: var(--ov); padding: 10px 0 4px; }
 
@@ -101,13 +103,15 @@
 </header>
 <p class="status" id="status" role="status">正在读取本地快照…</p>
 <p class="status" id="offline-hint" hidden>实时数据请打开 <a id="live-url"></a></p>
-<h2 class="sec">Claude Code</h2>
+<h2 class="sec">Claude 账号</h2>
 <div class="hero" id="hero"></div>
 <div class="queue" id="queue"></div>
 <div class="grid" id="grid"></div>
-<h2 class="sec">Codex</h2>
-<div class="grid" id="others"></div>
-<div id="packy"></div>
+<h2 class="sec">其他</h2>
+<div class="grid">
+  <div class="slot" id="others"></div>
+  <div class="slot" id="packy"></div>
+</div>
 <script src="order.js"></script>
 <script src="board.js"></script>
 </body>

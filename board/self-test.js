@@ -439,7 +439,11 @@ async function main() {
   assert.equal((await api('/warmup-extra-2.js')).status, 404);
   fs.rmdirSync(directoryAsset);
   const front = await api('/');
-  assert.match(await front.text(), /<script src="order\.js"><\/script>\s*<script src="board\.js"><\/script>/);
+  const frontHtml = await front.text();
+  assert.match(frontHtml, /<script src="order\.js"><\/script>\s*<script src="board\.js"><\/script>/);
+  // 页面分两块：Claude 账号；其他（Codex、Packy 两张卡在同一个网格）
+  assert.deepEqual(frontHtml.match(/<h2 class="sec">[^<]*<\/h2>/g), ['<h2 class="sec">Claude 账号</h2>', '<h2 class="sec">其他</h2>']);
+  assert.match(frontHtml, /<h2 class="sec">其他<\/h2>\s*<div class="grid">\s*<div class="slot" id="others"><\/div>\s*<div class="slot" id="packy"><\/div>\s*<\/div>/);
   checks.push('静态资源白名单');
 
   const online = await page(BOARD, true);
@@ -584,6 +588,7 @@ async function main() {
     assert.ok(seenAuth.every((value) => value === `Bearer ${packyKey}`));
     assert.ok(!packySnapshot.includes(packyKey));
     const html = packyPage.elements.packy.innerHTML;
+    assert.ok(html.startsWith('<div class="card" id="packy-card">'), '和 Codex 卡同一个网格，不再单独带标题');
     assert.ok(html.includes('$123.45') && html.includes('$23.45') && html.includes('不限') && html.includes('订阅用不了时兜底'));
     assert.ok(packyRoutePage.elements.packy.innerHTML.includes('子代理在走这里'));
     assert.equal(packyBad.status, 'error'); assert.ok(packyBad.message.includes('HTTP 401'));
