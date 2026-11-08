@@ -1,0 +1,196 @@
+{
+    "$help": "https://aka.ms/terminal-documentation",
+    "$schema": "https://aka.ms/terminal-profiles-schema",
+    "actions": [
+        {
+            "command": "closeTab",
+            "id": "User.closeTab"
+        },
+        {
+            "command": {
+                "action": "copy",
+                "singleLine": false
+            },
+            "id": "User.copy.644BA8F2"
+        },
+        {
+            "command": "paste",
+            "id": "User.paste"
+        },
+        {
+            "command": "find",
+            "id": "User.find"
+        },
+        {
+            "command": {
+                "action": "splitPane",
+                "split": "auto",
+                "splitMode": "duplicate"
+            },
+            "id": "User.splitPane.A6751878"
+        },
+        {
+            "command": {
+                "action": "switchToTab",
+                "index": 8
+            },
+            "id": "User.switchToTab.ED268D78"
+        }
+    ],
+    "copyFormatting": "none",
+    "copyOnSelect": false,
+    "keybindings": [
+        {
+            "id": "User.copy.644BA8F2",
+            "keys": "ctrl+c"
+        },
+        // ctrl+v 和 ctrl+shift+v 都走 WT 自己的文本粘贴，不经过 Claude Code 现起的 PowerShell，也不显示 Pasting。
+        // WT 的 paste 遇到纯位图会吞键：贴截图用 Claude Code 的 alt+v，或者开着 windows/ahk/hotkeys.ahk 直接 ctrl+v。
+        {
+            "id": "User.paste",
+            "keys": "ctrl+v"
+        },
+        {
+            "id": "User.paste",
+            "keys": "ctrl+shift+v"
+        },
+        {
+            "id": "User.find",
+            "keys": "ctrl+shift+f"
+        },
+        {
+            "id": "User.splitPane.A6751878",
+            "keys": "alt+shift+d"
+        },
+        {
+            "id": "Terminal.SwitchToTab0",
+            "keys": "alt+1"
+        },
+        {
+            "id": "Terminal.SwitchToTab1",
+            "keys": "alt+2"
+        },
+        {
+            "id": "Terminal.SwitchToTab2",
+            "keys": "alt+3"
+        },
+        {
+            "id": "Terminal.SwitchToTab3",
+            "keys": "alt+4"
+        },
+        {
+            "id": "Terminal.SwitchToTab4",
+            "keys": "alt+5"
+        },
+        {
+            "id": "Terminal.SwitchToTab5",
+            "keys": "alt+6"
+        },
+        {
+            "id": "Terminal.SwitchToTab6",
+            "keys": "alt+7"
+        },
+        {
+            "id": "Terminal.SwitchToTab7",
+            "keys": "alt+8"
+        },
+        {
+            "id": "User.switchToTab.ED268D78",
+            "keys": "alt+9"
+        },
+        {
+            "id": "Terminal.OpenNewTab",
+            "keys": "alt+t"
+        },
+        {
+            "id": "User.closeTab",
+            "keys": "alt+w"
+        }
+    ],
+    "newTabMenu": [
+        {
+            "type": "remainingProfiles"
+        }
+    ],
+    "profiles": {
+        "defaults": {
+            "colorScheme": "Catppuccin Mocha",
+            "font": {
+                "face": "JetBrainsMono NF, Cascadia Mono, Microsoft YaHei UI, Segoe UI Emoji",
+                "size": 11,
+                "weight": "normal"
+            },
+            "cursorShape": "filledBox",
+            "bellStyle": [
+                "taskbar"
+            ],
+            "padding": "12, 10, 12, 6",
+            "scrollbarState": "hidden",
+            "historySize": 50000,
+            "snapOnInput": true,
+            "altGrAliasing": true,
+            "antialiasingMode": "grayscale",
+            "adjustIndistinguishableColors": "never",
+            "intenseTextStyle": "bright",
+            "useAcrylic": false,
+            "opacity": 100
+        },
+        "list": []
+    },
+    "schemes": [
+        {
+            "name": "Catppuccin Mocha",
+            "background": "#1E1E2E",
+            "foreground": "#CDD6F4",
+            "cursorColor": "#F5E0DC",
+            "selectionBackground": "#585B70",
+            "black": "#45475A",
+            "red": "#F38BA8",
+            "green": "#A6E3A1",
+            "yellow": "#F9E2AF",
+            "blue": "#89B4FA",
+            "purple": "#F5C2E7",
+            "cyan": "#94E2D5",
+            "white": "#BAC2DE",
+            "brightBlack": "#585B70",
+            "brightRed": "#F38BA8",
+            "brightGreen": "#A6E3A1",
+            "brightYellow": "#F9E2AF",
+            "brightBlue": "#89B4FA",
+            "brightPurple": "#F5C2E7",
+            "brightCyan": "#94E2D5",
+            "brightWhite": "#A6ADC8"
+        }
+    ],
+    "themes": [
+        {
+            "name": "Catppuccin Mocha",
+            "tab": {
+                "background": "#181825FF",
+                "unfocusedBackground": "#11111BFF",
+                "showCloseButton": "always"
+            },
+            "tabRow": {
+                "background": "#11111BFF",
+                "unfocusedBackground": "#11111BFF"
+            },
+            "window": {
+                "applicationTheme": "dark",
+                "useMica": false
+            }
+        }
+    ],
+    "theme": "Catppuccin Mocha",
+    "showTabsInTitlebar": true,
+    "useAcrylicInTabRow": false,
+    "alwaysShowTabs": true,
+    "tabWidthMode": "equal",
+    "focusFollowMouse": false,
+    "trimBlockSelection": true,
+    "trimPaste": true,
+    // 末尾的 │ 是状态栏分隔符，双击选词时不把它选进去
+    "wordDelimiters": " /\\()\"'-.,:;<>~!@#$%^&*|+=[]{}~?│",
+    "warning.confirmCloseAllTabs": true,
+    "warning.largePaste": false,
+    "warning.multiLinePaste": false
+}

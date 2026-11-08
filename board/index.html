@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Code · Codex 额度看板</title>
+<style>
+  :root {
+    --base: #1e1e2e; --mantle: #181825; --crust: #11111b;
+    --s0: #313244; --s1: #45475a; --ov: #6c7086; --sub: #a6adc8; --text: #cdd6f4;
+    --green: #a6e3a1; --yellow: #f9e2af; --red: #f38ba8; --mauve: #cba6f7; --blue: #89b4fa;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--crust); }
+  body {
+    margin: 0 auto; max-width: 1640px; padding: 32px 40px; color: var(--text);
+    font: 14px/1.5 "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  }
+  header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 16px; }
+  h1 { margin: 0; font-size: 18px; font-weight: 600; }
+  .now { color: var(--ov); font-variant-numeric: tabular-nums; }
+  button {
+    margin-left: auto; background: var(--s0); color: var(--text); border: 1px solid var(--s1); border-radius: 6px;
+    padding: 5px 16px; font: inherit; cursor: pointer;
+  }
+  button:hover { background: var(--s1); }
+  button:focus-visible { outline: 2px solid var(--mauve); outline-offset: 2px; }
+
+  
+  .hero { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; margin: 18px 0 12px; }
+  .hero .lead { font-size: 18px; color: var(--sub); }
+  .hero .big { font-size: 56px; line-height: 1; font-weight: 700; color: var(--mauve); }
+  .hero .why { color: var(--sub); font-variant-numeric: tabular-nums; }
+  
+  .queue { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 22px; }
+  .queue:empty { display: none; }
+  .queue .lead { font-size: 15px; color: var(--sub); line-height: 28px; }
+  .queue .arrow { color: var(--ov); line-height: 28px; }
+  .q { display: flex; flex-direction: column; align-items: center; }
+  .q b { font-size: 24px; line-height: 28px; color: var(--text); }
+  .q small { color: var(--ov); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .q.stuck b { color: var(--ov); }
+  .q.stuck small { color: var(--red); }
+
+  
+  .sec { margin: 30px 0 0; padding-bottom: 8px; border-bottom: 1px solid var(--s0); font-size: 15px; font-weight: 600; color: var(--sub); }
+  .sec + .grid { margin-top: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 14px; }
+  .card {
+    display: flex; flex-direction: column;
+    background: var(--base); border: 1px solid var(--s0); border-radius: 10px; padding: 16px 18px;
+  }
+  .card.best { border-color: var(--mauve); box-shadow: inset 0 0 0 1px var(--mauve); }
+  .top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+  .letter { flex: none; font-size: 22px; font-weight: 700; color: var(--mauve); overflow-wrap: anywhere; }
+  .letter.word { width: auto; }
+  .email { min-width: 0; color: var(--sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tag {
+    flex: none; margin-left: auto; padding: 0 10px; border-radius: 999px;
+    background: var(--mauve); color: var(--crust); font-size: 12px; font-weight: 600; line-height: 20px;
+  }
+  .tag.dim { background: var(--s0); color: var(--sub); font-weight: 400; }
+  .win { margin-bottom: 12px; }
+  .row { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+  .label { color: var(--sub); }
+  .pct { font-weight: 600; }
+  .bar { height: 6px; background: var(--s0); border-radius: 3px; margin: 5px 0 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 3px; }
+  .reset { display: flex; justify-content: space-between; color: var(--ov); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .reset.done { color: var(--green); }
+  .usd { color: var(--sub); }
+  
+  .sub { margin-bottom: 12px; font-variant-numeric: tabular-nums; }
+  .sub .when { color: var(--ov); }
+  .sub.soon .when { color: var(--yellow); font-weight: 600; }
+  .sub.gone .when { color: var(--red); }
+  .card.gone { opacity: 0.5; }
+  .spd .idle { color: var(--ov); }
+  
+  .foot { margin-top: auto; color: var(--ov); font-size: 12px; border-top: 1px solid var(--s0); padding-top: 8px; }
+  .empty { color: var(--ov); padding: 10px 0 4px; }
+
+  @media (max-width: 1360px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 1000px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) {
+    body { padding: 20px 16px; }
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .hero .big { font-size: 44px; }
+  }
+
+  .status { color: var(--ov); margin: 12px 0 0; font-size: 12px; }
+  .status a { color: var(--blue); }
+  .hero .big { max-width: 100%; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<header>
+  <h1>额度看板</h1>
+  <span class="now" id="now"></span>
+  <button type="button" onclick="location.reload()">刷新</button>
+</header>
+<p class="status" id="status" role="status">正在读取本地快照…</p>
+<p class="status" id="offline-hint" hidden>实时数据请打开 <a id="live-url"></a></p>
+<h2 class="sec">Claude Code</h2>
+<div class="hero" id="hero"></div>
+<div class="queue" id="queue"></div>
+<div class="grid" id="grid"></div>
+<h2 class="sec">Codex</h2>
+<div class="grid" id="others"></div>
+<script src="board.js"></script>
+</body>
+</html>

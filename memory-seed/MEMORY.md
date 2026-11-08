@@ -1,0 +1,26 @@
+- [PowerShell 解析与命名易错点](powershell_pitfalls.md) — 避免别名冲突、数组拼接错位、弯引号解析和大小写匹配误判
+- [Git Bash 转义、换行与启动排查](git_bash_tool_quirks.md) — 跨工具传参时核对转义，检查 CRLF 时按原始字节读取
+- [Windows 删除失败与只读属性](windows_readonly_dirs_rmtree.md) — 删除报拒绝访问时区分只读、占用和权限，并检查部分删除结果
+- [中文文件校验与 Python UTF-8 模式](skill_validate_gbk_crash.md) — 校验脚本按本地代码页解码失败时显式启用 UTF-8，隔离模式用解释器参数
+- [Windows 终端输入与标签页隔离](cc_terminal_ui.md) — 方向键先排查修饰键，标题 hook 按标签页定位控制台并隔离状态
+- [上下文压缩后恢复证据](cc_compaction_keeps_user_messages.md) — 压缩摘要不能替代命令原文、错误输出和当前文件内容
+- [Windows 后台任务的进程与资源](cc_background_task_detach_windows.md) — 隐藏窗口不等于进程脱离，长任务要核对生命周期、环境和资源
+- [HyperFrames 渲染与画面检查易错点](hyperframes_video_plugin.md) — 排查时间线注册、布局误报、画布性能、码率和静音分析问题
+- [MV 工程进程清理与着色器编译](mv_engine_pitfalls.md) — 检查残留开发服务，分开测量着色器编译和运行性能
+- [文件未变时说明复用依据](feedback_repeat_read_unchanged_files.md) — 工具明确返回文件未变时复用已有内容，并如实交代读取状态
+- [注释保留原因，测试限定范围](feedback_code_comments_and_scope.md) — 代码注释只解释非显然原因，测试或查询任务不附带修改业务逻辑
+- [澄清指代并减少重复追问](feedback_decide_dont_ask.md) — 多个指代候选先复述，澄清前读完材料并消解可自行判断的分歧
+- [计划按依赖和完成标准组织](feedback_plan_no_timeline.md) — 没有期限依据时不编排日程，每一步写清依赖和完成标准
+- [后台通知只保留有效信息](feedback_no_chatty_progress_monitor.md) — 长后台任务不按固定百分比重复通知，优先报告完成、错误和阻塞
+- [要复制或照做的内容直接展示](feedback_copy_text_show_in_cc.md) — 复制文本和操作清单在回复中完整给出，另存文件不能替代正文
+- [模型身份与输出边界](feedback_quality_and_model_identity.md) — 严格输出按要求执行，模型身份只依据当前可验证信息
+- [短确认结合上下文判断](feedback_najiuzheyang_means_proceed.md) — 明确方案后的短确认通常承接执行，不能直接推断为取消或清理授权
+- [自主任务使用明确仓库和独立工作区](feedback_autonomous_agent_prompt_worktree.md) — 自动执行任务写明目标仓库，在独立 worktree 中改动并核对分支
+- [视频修改按影响范围处理](feedback_video_efficiency.md) — 只改声音且时长不变时替换音轨，画面问题先集中检查再渲染
+- [画面变化服从统一风格](feedback_video_flashy_style.md) — 用主体、构图和层次制造变化，全片统一配色、字体与发光规则
+- [细节来自结构与可读层次](feedback_video_fine_detail.md) — 纹理型画面用细线和注释，信息图用真实数量与清楚标注
+- [MV 分镜先确定画面主体](feedback_mv_storyboard_picture_first.md) — 每个段落先有可识别主体，歌词和界面元素服务画面
+- [公开视频从头组织内容](feedback_public_video_original.md) — 独立构思提纲和文案，不照搬参考片独有的表达与经历
+- [成片与封面一起交付](feedback_video_deliver_video_and_cover.md) — 成片和封面清楚列出，按发布画幅输出并推荐版本
+- [展示视频平实且尽早展示主体](feedback_showcase_video_no_melodrama.md) — 形式服务内容，字幕留白，旁白与配乐在交付前检查
+- [片名表达主题与问题](feedback_video_title_naming.md) — 片名讲清视频回答什么，避免空名词、训诫口吻和数字复述

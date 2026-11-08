@@ -1,0 +1,29 @@
+# 这些文件可能带密钥或本机路径，不进仓库
+settings.json
+settings.local.json
+.claude.json
+.credentials.json
+auth.json
+.env
+.env.*
+# Windows Terminal 的示例设置是要公开的
+!/windows/terminal/settings.json
+
+# backup.ps1 的快照和本机记忆（脚本本身会拒绝写进 Git 仓库和本仓库目录，这里再兜一层）
+backup/
+snapshot/
+/.claude/
+/.codex/
+/home/
+/tasks/
+memory/
+links-*.txt
+last-run.txt
+*.reg
+
+# AHK 脚本依赖的二进制，自己下载
+*.dll
+_debug.txt
+
+*.log
+*.tmp

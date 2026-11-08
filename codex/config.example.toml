@@ -1,0 +1,48 @@
+# Codex CLI 和桌面版的设置，对应 ~/.codex/config.toml。
+# install.ps1 -Codex 在 ~/.codex/config.toml 不存在时复制一份过去；已存在时不改，需要的部分自己合并。
+# 登录用 ChatGPT 订阅（codex login）。这里不写 model_provider，走的就是官方。
+
+model = "gpt-6.1-sol"
+model_reasoning_effort = "max"
+plan_mode_reasoning_effort = "xhigh"
+# fast 档出字更快，额度扣得也更多
+service_tier = "fast"
+personality = "pragmatic"
+# 上下文窗口按模型上限设，用到 80 万时自动压缩；换成窗口更小的模型要一起改
+model_context_window = 872000
+model_auto_compact_token_limit = 800000
+
+# 项目里没有 AGENTS.md 时读 CLAUDE.md，和 Claude Code 共用项目规则
+project_doc_fallback_filenames = ["CLAUDE.md"]
+
+# 不审批、不进沙箱，命令直接跑。不想这样就删掉这两行
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+
+[features]
+js_repl = false
+chronicle = false
+# 记忆统一用 ~/.claude/memory（开会话时由 hook 注入索引），不用 Codex 自己的记忆
+memories = false
+
+[memories]
+generate_memories = false
+use_memories = false
+
+[notice]
+hide_rate_limit_model_nudge = true
+
+# 以下是桌面版的界面和通知
+[desktop]
+appearanceTheme = "dark"
+conversationDetailMode = "STEPS_COMMANDS"
+show-context-window-usage = true
+enabled-reasoning-efforts = ["low", "medium", "high", "xhigh", "ultra", "max"]
+ambient-suggestions-enabled = false
+toys-confetti-enabled = false
+notifications-turn-mode = "off"
+notifications-sound = "none"
+notifications-dot-enabled = false
+notifications-permissions-enabled = false
+notifications-questions-enabled = false
+open-link-in-target-preference = "external-browser"
