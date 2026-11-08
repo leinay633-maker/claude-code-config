@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Claude Code statusline — Catppuccin Mocha
-// 输出：模型 | effort | 工作目录(+git分支) | ctx 已用/占比 | 账号 | 5h/本周额度 | 缓存命中率 | 花费 | 行数增删
+// 输出：模型 | effort | 工作目录(+git分支) | ctx 已用/占比 | 账号（多账号时是切号顺序） | 5h/本周额度 | 缓存命中率 | 花费 | 行数增删
 // 装了额度看板（~/.claude/board 存在）时，顺便把本账号的额度快照和花费增量写给看板，见 recordRateLimits、recordCost。
 // 数据来自 stdin 的 JSON，字段见 https://code.claude.com/docs/en/statusline
 //
@@ -135,6 +135,35 @@ function recordRateLimits(d, acct) {
   }
 }
 
+// 切号顺序：和看板页面顶部一致，排序规则共用看板目录的 order.js。只读看板目录里的快照，不发请求。
+// 第一个是现在该用的号（绿色），方括号是当前这个号，灰色的是暂时用不了或没有额度快照的号。账号不到两个时返回 null
+function switchOrder(acct) {
+  const O = require(path.join(BOARD_DIR, 'order.js'));
+  const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8').replace(/^﻿/, ''));
+  const list = (readJson(path.join(BOARD_DIR, 'accounts.json')).accounts || [])
+    .filter((a) => a && typeof a.id === 'string' && /^[a-z0-9-]+$/.test(a.id));
+  if (list.length < 2) return null;
+  const accts = {}, warmup = {};
+  for (const { id } of list) {
+    try {
+      accts[id] = readJson(path.join(BOARD_DIR, `acct-${id}.json`));
+    } catch {}
+    try {
+      // warmup-<号>.js 是 (window.WARMUP=window.WARMUP||{})["a"]={...};
+      const m = fs.readFileSync(path.join(BOARD_DIR, `warmup-${id}.js`), 'utf8').match(/\]=(\{[\s\S]*\})\s*;?\s*$/);
+      if (m) warmup[id] = JSON.parse(m[1]);
+    } catch {}
+  }
+  const now = Date.now() / 1000;
+  const { order, usable } = O.rank(O.rows(list, accts, warmup, now), now);
+  const items = order.map((r, i) => {
+    const name = r.id.length === 1 ? r.id.toUpperCase() : r.id;
+    const col = !usable(r) ? C.dim : i === 0 ? C.green : C.subtext;
+    return r.id === acct ? `${c(C.sky, '[')}${c(col, name)}${c(C.sky, ']')}` : c(col, name);
+  });
+  return `${c(C.dim, '切号')} ${items.join(c(C.dim, '›'))}`;
+}
+
 // 把本账号的花费增量记进看板的 ledger-YYYY-MM.log，看板按窗口加总成美金。
 // total_cost_usd 是 Claude Code 自己按 API 价算的本会话累计（含子代理和联网搜索，不含标题生成这类 side query）；
 // 续接会话时它从会话记录里恢复整段的累计，不分是哪个号花的。所以上次的值按“会话 + 进程”记在 seen/<会话ID>，
@@ -238,8 +267,15 @@ process.stdin.on('end', () => {
   // ── 当前账号：紧挨着额度放，一眼看出是哪个号的额度。只有一个号又没装看板时不显示
   // 单字母的 id 显示成“A号”，其他原样；认不出的配置目录显示目录名
   const cfg = process.env.CLAUDE_CONFIG_DIR;
+  // 装了看板且账号不止一个时换成切号顺序，当前号在里面用方括号标出，不再单独显示“X号”
   if (acct && (cfg || board)) {
-    add(0, c(C.sky, acct.length === 1 ? acct.toUpperCase() + '号' : acct));
+    let order = null;
+    if (board) {
+      try {
+        order = switchOrder(acct);
+      } catch {} // 看板文件缺了或坏了就退回只显示“X号”
+    }
+    add(0, order || c(C.sky, acct.length === 1 ? acct.toUpperCase() + '号' : acct));
   } else if (cfg) {
     add(0, c(C.sky, cfg.replace(/[\\/]+$/, '').split(/[\\/]/).pop().replace(/^\./, '')));
   }

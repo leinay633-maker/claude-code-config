@@ -1,6 +1,8 @@
 'use strict';
 
 (async function () {
+  // 排序和额度换算在 order.js，index.html 先于本文件加载它
+  const O = window.BoardOrder;
   const ID = /^[a-z0-9-]+$/;
   const LEN = { five: 5 * 3600, week: 7 * 86400 };
   const esc = (text) => String(text ?? '').replace(/[&<>"']/g,
@@ -60,12 +62,6 @@
     const m = Math.max(0, Math.round((now() - sec) / 60));
     return m < 1 ? '刚刚' : m < 60 ? `${m} 分钟前` : m < 1440 ? `${Math.floor(m / 60)} 小时前` : `${Math.floor(m / 1440)} 天前`;
   }
-  function effective(w) {
-    if (!w || !finite(w.pct)) return null;
-    const reset = finite(w.reset) && w.reset > 0 ? w.reset : null;
-    const done = !!reset && reset <= now();
-    return { pct: done ? 0 : Math.max(0, Math.round(w.pct)), reset, done };
-  }
   const color = (pct) => pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--yellow)' : 'var(--green)';
   function start(w, name) {
     if (!w || !finite(w.reset) || !w.reset) return null;
@@ -90,36 +86,10 @@
       `<div class="reset${w.done ? ' done' : ''}"><span>${reset}</span>${amount}</div></div>`;
   }
 
-  function subEnd(sub, at) {
-    if (!finite(sub) || sub <= 0 || !finite(at) || at < sub) return Infinity;
-    const s = new Date(sub * 1000);
-    // 每个月都从原始开通日推算，小月取月末，避免月底续费日期逐月漂移。
-    for (let n = 1; n < 2400; n++) {
-      const y = s.getUTCFullYear(), m = s.getUTCMonth() + n;
-      const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
-      const t = Date.UTC(y, m, Math.min(s.getUTCDate(), last), s.getUTCHours(), s.getUTCMinutes(), s.getUTCSeconds()) / 1000;
-      if (t > at) return t;
-    }
-    return Infinity;
-  }
-  function warmupOf(id) {
-    const w = (window.WARMUP || {})[id];
-    return w && finite(w.at) && w.at > 0 ? w : null;
-  }
-  function aliveAt(id) {
-    const w = warmupOf(id);
-    if (!w) return 0;
-    return finite(w.alive) && w.alive > 0 ? w.alive : ['ok', 'limit'].includes(w.status) ? w.at : 0;
-  }
-  function lapsedAt(id) {
-    const w = warmupOf(id);
-    return w && w.status === 'error' && /can't use your Claude subscription|payment is past due/i.test(w.msg) ? w.at : 0;
-  }
-  function loginOut(id) {
-    const w = warmupOf(id);
-    return w && w.status === 'error' && !lapsedAt(id) &&
-      /time limit and cannot be renewed|Failed to authenticate|claude auth login/i.test(w.msg) ? w.at : 0;
-  }
+  const effective = (w) => O.effective(w, now());
+  const warmupOf = (id) => O.warmupOf(window.WARMUP, id);
+  const lapsedAt = (id) => O.lapsedAt(window.WARMUP, id);
+  const loginOut = (id) => O.loginOut(window.WARMUP, id);
   function loginSoon(id) {
     const w = warmupOf(id);
     if (!w || w.status !== 'ok') return '';
@@ -185,56 +155,35 @@
   }
 
   function renderClaude() {
-    const rows = accounts.map(({ id }) => {
-      const r = accts[id] || {};
-      // 失败或超时仍可沿用上次 alive；付款失败则按最近一次明确拒绝订阅的结果显示。
-      const seen = Math.max(finite(r.at) ? r.at : 0, aliveAt(id)), lapsed = lapsedAt(id);
-      return { id, email: r.email || '', five: effective(r.five), week: effective(r.week),
-        at: r.at, end: lapsed || subEnd(r.sub, seen), lapsed,
-        endBy: !lapsed && seen > (r.at || 0) ? seen : null, login: loginOut(id) };
-    });
-    const loginDown = (r) => r.login && (!r.at || r.at < r.login);
-    const known = rows.filter((r) => r.at && (r.five || r.week));
-    const blockers = (r) => [[r.five, 90], [r.week, 100]]
-      .filter(([w, threshold]) => w && w.pct >= threshold).map(([w]) => w.reset || Infinity);
-    const backAt = (r) => Math.max(...blockers(r));
-    const dead = (r) => r.end <= now() || (blockers(r).length && backAt(r) >= r.end);
-    const plan = (r) => r.week && !r.week.done && r.week.reset && r.week.reset <= r.end
-      ? { at: r.week.reset, label: '本周重置', left: Math.max(0, 100 - r.week.pct) }
-      : { at: r.end, label: '订阅到期（推算）', left: r.week ? Math.max(0, 100 - r.week.pct) : 100 };
-    const load = (r) => Math.max(r.five ? r.five.pct : 0, r.week ? r.week.pct : 0);
-    const byUse = (a, b) => plan(a).at - plan(b).at || load(a) - load(b);
-    const usable = known.filter((r) => !dead(r));
-    const order = known.length === rows.length ? [
-      ...usable.filter((r) => !blockers(r).length && !loginDown(r)).sort(byUse),
-      ...usable.filter((r) => blockers(r).length && !loginDown(r)).sort((a, b) => backAt(a) - backAt(b) || byUse(a, b)),
-      ...usable.filter(loginDown).sort(byUse),
-    ] : [];
-    const best = order.length && !blockers(order[0]).length && !loginDown(order[0]) ? order[0] : null;
+    const t = now(), rows = O.rows(accounts, accts, window.WARMUP, t);
+    // 排序规则在 order.js，状态栏也用它
+    const { order, state, plan, backAt, dead, usable } = O.rank(rows, t);
+    const best = order.length && usable(order[0]) ? order[0] : null;
     const rank = Object.fromEntries(order.map((r, i) => [r.id, i + 1]));
+    const first = order[0], big = first ? `<span class="big">${esc(first.id.toUpperCase())}</span>` : '';
     let hero;
     if (!rows.length) hero = '<span class="lead">尚未配置账号，请先运行安装脚本</span>';
-    else if (known.length < rows.length) hero = `<span class="lead">还有 ${rows.length - known.length} 个账号没有额度快照，用对应账号发一条消息后刷新</span>`;
-    else if (best) {
-      const p = plan(best);
-      hero = `<span class="lead">现在用</span><span class="big">${esc(best.id.toUpperCase())}</span>` +
-        `<span class="why">${p.at === Infinity ? '额度可用' : `${p.label} ${date(p.at)} · 还剩 ${p.left}%`} · 5 小时 ${best.five ? best.five.pct : 0}%</span>`;
-    } else if (order.length && loginDown(order[0])) hero = `<span class="lead">可用账号需要重新登录</span>` +
-      `<span class="big">${esc(order[0].id.toUpperCase())}</span><span class="why">请用该账号的入口重新登录</span>`;
-    else if (order.length) hero = `<span class="lead">最早恢复的是</span><span class="big">${esc(order[0].id.toUpperCase())}</span>` +
-      `<span class="why">${date(backAt(order[0]))}</span>`;
+    else if (state(first) === 'free') {
+      const p = plan(first);
+      hero = `<span class="lead">现在用</span>${big}` +
+        `<span class="why">${p.at === Infinity ? '额度可用' : `${p.label} ${date(p.at)} · 还剩 ${p.left}%`} · 5 小时 ${first.five ? first.five.pct : 0}%</span>`;
+    } else if (state(first) === 'maybe') hero = `<span class="lead">现在用</span>${big}<span class="why">预热成功，还没有额度快照</span>`;
+    else if (state(first) === 'unknown') hero = `<span class="lead">先试</span>${big}<span class="why">还没有额度快照，用它发一条消息后刷新</span>`;
+    else if (state(first) === 'blocked') hero = `<span class="lead">最早恢复的是</span>${big}<span class="why">${date(backAt(first))}</span>`;
+    else if (state(first) === 'login') hero = `<span class="lead">可用账号需要重新登录</span>${big}<span class="why">请用该账号的入口重新登录</span>`;
     else hero = '<span class="lead">暂无可推荐账号，请更新额度快照</span>';
     document.getElementById('hero').innerHTML = hero;
+    const NOTE = { maybe: '预热可用 · 额度未知', unknown: '没有额度快照', dead: '需更新快照' };
     document.getElementById('queue').innerHTML = order.length > 1 ? '<span class="lead">之后</span>' + order.slice(1).map((r) => {
-      const p = plan(r), blocked = blockers(r).length || loginDown(r);
-      const note = loginDown(r) ? '登录到期，先重新登录' : blocked ? `${date(backAt(r))} 恢复`
-        : p.at === Infinity ? '额度可用' : `${date(p.at)} · 剩 ${p.left}%`;
-      return `<span class="q${blocked ? ' stuck' : ''}"><b>${esc(r.id.toUpperCase())}</b><small>${esc(note)}</small></span>`;
+      const s = state(r), p = plan(r);
+      const note = s === 'login' ? (r.at ? '登录到期，先重新登录' : '没登录，先登录') : s === 'blocked' ? `${date(backAt(r))} 恢复`
+        : s === 'free' ? (p.at === Infinity ? '额度可用' : `${date(p.at)} · 剩 ${p.left}%`) : NOTE[s];
+      return `<span class="q${['free', 'maybe'].includes(s) ? '' : ' stuck'}"><b>${esc(r.id.toUpperCase())}</b><small>${esc(note)}</small></span>`;
     }).join('<span class="arrow">→</span>') : '';
     document.getElementById('grid').innerHTML = rows.map((r) => {
       const chosen = best && r.id === best.id, gone = r.at && dead(r);
-      const tag = chosen ? '<span class="tag">现在用</span>' : rank[r.id] ? `<span class="tag dim">第 ${rank[r.id]} 个</span>`
-        : gone ? '<span class="tag dim">需更新快照</span>' : '';
+      const tag = chosen ? '<span class="tag">现在用</span>'
+        : `<span class="tag dim">第 ${rank[r.id]} 个${state(r) === 'dead' ? ' · 需更新快照' : ''}</span>`;
       const foot = r.at ? `额度快照 ${date(r.at)}（${ago(r.at)}）` : '还没有快照，用对应账号发一条消息后刷新';
       const warm = warmLine(r.id);
       return `<div class="card${chosen ? ' best' : ''}${gone ? ' gone' : ''}" data-account="${esc(r.id)}">` +

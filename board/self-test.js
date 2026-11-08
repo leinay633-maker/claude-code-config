@@ -232,6 +232,7 @@ async function page(dir, online, search = '?port=8419') {
     } };
   globals.window = globals;
   context = vm.createContext(globals);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'order.js'), 'utf8'), context);
   await vm.runInContext(fs.readFileSync(path.join(ROOT, 'board.js'), 'utf8'), context);
   return { elements, urls, scripts };
 }
@@ -420,7 +421,7 @@ async function main() {
   }
   assert.equal((await rawRequest('/', { ...nav, Host: 'example.invalid' })).status, 403);
   checks.push('跨站点开看板页面放行，嵌入、脚本和数据接口仍拒绝');
-  for (const route of ['/', '/index.html', '/board.js', '/accounts.js', '/acct-extra-2.js', '/cost.js', '/speed.js', '/codex.js', '/warmup-a.js', '/warmup-codex.js']) {
+  for (const route of ['/', '/index.html', '/board.js', '/order.js', '/accounts.js', '/acct-extra-2.js', '/cost.js', '/speed.js', '/codex.js', '/warmup-a.js', '/warmup-codex.js']) {
     assert.equal((await api(route)).status, 200, route);
   }
   write(path.join(BOARD, 'warmup-unknown-id.js'), 'window.TEST=true;');
@@ -437,7 +438,7 @@ async function main() {
   assert.equal((await api('/warmup-extra-2.js')).status, 404);
   fs.rmdirSync(directoryAsset);
   const front = await api('/');
-  assert.ok((await front.text()).includes('<script src="board.js"></script>'));
+  assert.match(await front.text(), /<script src="order\.js"><\/script>\s*<script src="board\.js"><\/script>/);
   checks.push('静态资源白名单');
 
   const online = await page(BOARD, true);
@@ -544,6 +545,26 @@ async function main() {
   check('本地文本转义', () => {
     assert.ok(escaped.elements.grid.innerHTML.includes('&lt;img'));
     assert.ok(!escaped.elements.grid.innerHTML.includes('<img'));
+  });
+  // 没有额度快照的号也要排进切号顺序，不能让整条顺序消失
+  write(path.join(BOARD, 'accounts.js'), `window.ACCOUNTS=${JSON.stringify([...accountList, { id: 'new-3', configDir: '.claude-new-3' }])};`);
+  const tagOf = (html, id) => html.split(`data-account="${id}">`)[1].split('data-account=')[0].match(/class="tag[^"]*">([^<]*)</)[1];
+  const unranked = await page(BOARD, false);
+  warmup('new-3', { at: now - 10, status: 'error', msg: 'Not logged in · Please run /login' });
+  const noLogin = await page(BOARD, false);
+  warmup('new-3', { at: now - 10, status: 'ok', msg: 'hi', alive: now - 10 });
+  const warmed = await page(BOARD, false);
+  fs.rmSync(path.join(BOARD, 'warmup-new-3.js'));
+  write(path.join(BOARD, 'accounts.js'), `window.ACCOUNTS=${JSON.stringify([{ id: 'new-3', configDir: '.claude-new-3' }])};`);
+  const onlyUnknown = await page(BOARD, false);
+  write(path.join(BOARD, 'accounts.js'), savedAccountsJs);
+  check('没有额度快照的号也排进切号顺序', () => {
+    assert.ok(unranked.elements.hero.innerHTML.includes('现在用'));
+    assert.ok(unranked.elements.queue.innerHTML.includes('<b>NEW-3</b><small>没有额度快照</small>'));
+    assert.equal(tagOf(unranked.elements.grid.innerHTML, 'new-3'), '第 3 个');
+    assert.ok(noLogin.elements.queue.innerHTML.includes('<b>NEW-3</b><small>没登录，先登录</small>'));
+    assert.ok(warmed.elements.queue.innerHTML.includes('<b>NEW-3</b><small>预热可用 · 额度未知</small>'));
+    assert.ok(onlyUnknown.elements.hero.innerHTML.includes('先试') && onlyUnknown.elements.hero.innerHTML.includes('NEW-3'));
   });
   const empty = path.join(RUN, 'empty'); fs.mkdirSync(empty);
   write(path.join(empty, 'accounts.js'), 'window.ACCOUNTS=[];');

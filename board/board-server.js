@@ -14,7 +14,7 @@ function createServer(port) {
     '/speed': { read: speed.compute, ttl: 1000 },
     '/codex': { read: readCodex, ttl: 10000 },
   };
-  const assets = new Map([['/', 'index.html'], ['/index.html', 'index.html'], ['/board.js', 'board.js']]);
+  const assets = new Map([['/', 'index.html'], ['/index.html', 'index.html'], ['/board.js', 'board.js'], ['/order.js', 'order.js']]);
   // 端口是 80 时浏览器的 Host 和 Origin 不带端口号
   const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`, ...(port === 80 ? ['127.0.0.1', 'localhost'] : [])]);
   const origins = new Set([...hosts].map((host) => `http://${host}`));
@@ -71,7 +71,7 @@ function createServer(port) {
       let file, type;
       if (assets.has(route)) {
         file = path.join(__dirname, assets.get(route));
-        type = route === '/board.js' ? 'text/javascript' : 'text/html';
+        type = route.endsWith('.js') ? 'text/javascript' : 'text/html';
       } else {
         const name = route.slice(1);
         const match = name.match(/^(acct|warmup)-([a-z0-9-]+)\.js$/);
