@@ -23,9 +23,11 @@ param(
     [string[]]$WarmupTimes = @('09:00', '14:00', '19:00'),
     # 装 AI 每日简报到 ~/.claude/briefing，并注册计划任务 ai-briefing（默认每天 09:30，14:30 补跑），输出在 ~/AI-Briefing
     [switch]$Briefing,
+    # 装命令行设置：PowerShell 7 的配置文件里加一行，加载 ~/.claude/shell/profile.ps1；~/.config/starship.toml 没有时放一份
+    [switch]$Shell,
     [switch]$Codex,
     [switch]$Cursor,
-    # 用仓库里的新版覆盖本机的脚本（状态栏、标题、记忆注入、看板代码），旧的先备份；规则、skills、子代理和记忆不动
+    # 用仓库里的新版覆盖本机的脚本（状态栏、标题、记忆注入、看板代码、命令行设置），旧的先备份；规则、skills、子代理和记忆不动
     [switch]$Update,
     [string]$HomeDir = $HOME,
     # 只打印会做什么，不改任何文件
@@ -405,6 +407,40 @@ if ($Briefing) {
             & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $briefDir 'register-task.ps1') -Python $py.Source
             if ($LASTEXITCODE -ne 0) { Write-Output "WARN   计划任务 ai-briefing 没注册成功（退出码 $LASTEXITCODE），见上面的输出" }
         }
+    }
+}
+
+# ── 命令行：已有的配置文件不动，只在末尾加一行加载 ~/.claude/shell/profile.ps1
+if ($Shell) {
+    $shellProfile = Join-Path $main 'shell\profile.ps1'
+    Copy-One (Join-Path $Root 'windows\shell\profile.ps1') $shellProfile -Refresh:$Update
+    # 提示符样式是给人改的，-Update 也不覆盖
+    Copy-One (Join-Path $Root 'windows\shell\starship.toml') (Join-Path $HomeDir '.config\starship.toml')
+
+    # 只管 PowerShell 7：Windows PowerShell 默认不许跑脚本，给它加配置文件，每次启动都会报错。
+    # Documents 可能被重定向到 OneDrive，不能直接拼家目录
+    $docs = if ($isRealHome) { [Environment]::GetFolderPath('MyDocuments') } else { Join-Path $HomeDir 'Documents' }
+    $profilePath = Join-Path $docs 'PowerShell\Microsoft.PowerShell_profile.ps1'
+    Warn-SharedLink (Get-Existing $profilePath)
+    if ((Test-Path -LiteralPath $profilePath) -and [IO.File]::ReadAllText($profilePath).Contains('claude-code-config')) {
+        Write-Output "OK     $profilePath"
+    } elseif ($DryRun) {
+        Write-Output "APPEND 加载命令行设置 -> $profilePath"
+    } else {
+        New-Item -ItemType Directory -Force -Path (Split-Path $profilePath -Parent) | Out-Null
+        # 只写 ASCII，能接在无 BOM 的 UTF-8 或 ANSI 后面；UTF-16 的文件要按 UTF-16 追加，否则会写坏
+        $encoding = [Text.Encoding]::ASCII
+        if (Test-Path -LiteralPath $profilePath) {
+            $head = [IO.File]::ReadAllBytes($profilePath)
+            if ($head.Length -ge 2 -and $head[0] -eq 0xFF -and $head[1] -eq 0xFE) { $encoding = [Text.Encoding]::Unicode }
+        }
+        $loadPath = if ($isRealHome) { '$HOME\.claude\shell\profile.ps1' } else { $shellProfile }
+        [IO.File]::AppendAllText($profilePath, "`r`n# claude-code-config: shell settings. Delete the next line to turn them off.`r`nif (Test-Path `"$loadPath`") { . `"$loadPath`" }`r`n", $encoding)
+        Write-Output "APPEND 加载命令行设置 -> $profilePath"
+    }
+    if ($isRealHome) {
+        if (-not (Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue)) { Write-Output "WARN   还没装 PowerShell 7，命令行设置装好才生效：winget install Microsoft.PowerShell" }
+        if (-not (Get-Command starship -CommandType Application -ErrorAction SilentlyContinue)) { Write-Output "WARN   还没装 Starship，提示符装好才生效：winget install Starship.Starship" }
     }
 }
 

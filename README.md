@@ -1,6 +1,6 @@
 # claude-code-config
 
-我日常用的 Claude Code 配置里能通用的部分：全局规则、设置、状态栏、Windows Terminal 设置、标签页标题、长期记忆的接法、多账号、额度看板和预热、用 Codex 跑的子代理、AI 每日简报、做视频的 skill，以及换电脑用的安装和备份脚本。主要在 Windows 11 上用，脚本只支持 Windows。
+我日常用的 Claude Code 配置里能通用的部分：全局规则、设置、状态栏、Windows Terminal 和命令行设置、标签页标题、长期记忆的接法、多账号、额度看板和预热、用 Codex 跑的子代理、AI 每日简报、做视频的 skill，以及换电脑用的安装和备份脚本。主要在 Windows 11 上用，脚本只支持 Windows。
 
 换一台电脑，照着下面装一遍，就是我平时用的样子。
 
@@ -23,6 +23,7 @@
 | `briefing/` | AI 每日简报：每天抓几个公开来源，用 Claude Code 写成中文简报 |
 | `warmup/` | 预热：每天定时给各个号发一句短话，提前开起 5 小时窗口 |
 | `windows/terminal/settings.json` | Windows Terminal 的配色、字体和快捷键 |
+| `windows/shell/` | PowerShell 7 的编码、代理开关、历史搜索和配色，Starship 提示符 |
 | `windows/ahk/` | 类 Mac 快捷键 |
 | `windows/ngen-ps51.ps1` | 让 Windows PowerShell 5.1 冷启动变快，hook 和贴图跟着变快 |
 | `scripts/install.ps1` | 把以上内容装到这台电脑 |
@@ -34,18 +35,19 @@
 git clone https://github.com/leinay633-maker/claude-code-config.git
 cd claude-code-config
 ./scripts/install.ps1 -DryRun   # 先看会动哪些文件
-./scripts/install.ps1           # 按需加 -Accounts b,c、-Board、-Warmup、-Briefing、-Codex、-Cursor
+./scripts/install.ps1           # 按需加 -Accounts b,c、-Board、-Warmup、-Briefing、-Shell、-Codex、-Cursor
 ```
 
 仓库只是模板，每台电脑各自一份。脚本把规则复制成 `~/.claude/CLAUDE.md`，skills、子代理和脚本复制进 `~/.claude`，并建好记忆目录 `~/.claude/memory`。之后改的都是本机那份，不回写仓库，也不和别的电脑同步；装完删掉克隆的仓库也不影响使用。
 
 - 已有的文件不覆盖，重跑只补上仓库里新增的 skill 和子代理。
-- `git pull` 后想用新版脚本，加 `-Update`：只刷新状态栏、标题、记忆注入和看板的代码，旧的先备份到 `~/.claude-config-backup/<时间戳>/`。规则、skills、子代理和记忆不动。
+- `git pull` 后想用新版脚本，加 `-Update`：只刷新状态栏、标题、记忆注入、看板的代码和命令行设置，旧的先备份到 `~/.claude-config-backup/<时间戳>/`。规则、skills、子代理和记忆不动。
 - `~/.claude/settings.json` 不存在时，用 `settings.example.json` 生成一份，里面的 `~/.claude`、`$USERPROFILE` 换成本机绝对路径：没有 Git Bash 时 Claude Code 用 PowerShell 跑命令，这两种写法都展开不了。已存在时不改，需要的部分自己合并，合并时也把路径换掉。
 - `-Accounts b,c`：开副号，见下面“多账号”。
 - `-Board`：装额度看板，见下面“额度看板”。
 - `-Warmup`：装预热，见下面“预热”。
 - `-Briefing`：装 AI 每日简报，见下面“每日简报”。
+- `-Shell`：装命令行设置，见下面“命令行”。
 - `-Codex`：`~/.codex/AGENTS.md`、`~/.agents/skills` 软链到 `~/.claude` 那份，在 `~/.codex/hooks.json` 装上注入记忆索引的 hook；`~/.codex/config.toml` 不存在时从 `codex/config.example.toml` 复制。如果 Codex 提示要信任这个新 hook，选信任。
 - `-Cursor`：`~/.cursor/skills`、`~/.cursor/agents` 软链到 `~/.claude` 那份。Cursor 不读用户级的 AGENTS.md，所以在 `~/.cursor/hooks.json` 装一个 hook，开会话时注入全局规则和记忆索引。
 
@@ -132,6 +134,23 @@ Claude Code 在 Windows 上每次 Alt+V 贴图、每个用 `powershell.exe` 跑�
 | `Ctrl+Shift+F` | 查找 |
 
 剪贴板里只有图片时，Windows Terminal 的粘贴会吞掉按键。贴截图用 Claude Code 的 `Alt+V`，或开着 `windows/ahk/hotkeys.ahk` 直接按 `Ctrl+V`。
+
+## 命令行
+
+`-Shell` 只管 PowerShell 7，Windows PowerShell 5.1 不动。要先装 PowerShell 7 和 Starship，字体用上面 Windows Terminal 那款：
+
+```powershell
+winget install Microsoft.PowerShell
+winget install Starship.Starship
+```
+
+脚本把 `windows/shell/profile.ps1` 复制到 `~/.claude/shell/profile.ps1`，在 PowerShell 7 的配置文件末尾加一行加载它，原有内容不动，删掉那一行就关了。`~/.config/starship.toml` 不存在时放一份，已有的不改。
+
+- 控制台收发都用 UTF-8，中文不乱。
+- `proxy-on`、`proxy-off`、`proxy-status` 开关代理，默认 `127.0.0.1:7897`，别的端口用 `proxy-on http://127.0.0.1:端口`。
+- 开新窗口时，继承来的代理如果没人在听，就自动清掉。不清的话所有出网请求都会失败，Claude Code 的 WebFetch 会报 `Unable to verify if domain ... is safe to fetch`。
+- 打字时按历史给出候选列表，上下键按已输入的开头搜历史，命令行配色是 Catppuccin Mocha。
+- Starship 提示符两行：上面是目录、Git 状态、语言环境和耗时，下面是输入符。
 
 ## 标签页标题
 
