@@ -122,4 +122,33 @@ function records(since) {
   return out;
 }
 
-module.exports = { records, parse };
+// 走 Packy 的 Codex 会话：不看订阅账号，只看会话的 provider。这些记录不混进订阅的金额和额度
+const packyCache = new Map();
+function packyRecords(since) {
+  const out = [], ids = new Set();
+  for (const root of roots) for (const file of walk(root, [])) {
+    let st;
+    try { st = statOpen(file); } catch { continue; }
+    if (st.mtimeMs / 1000 < since) continue;
+    let c = packyCache.get(file);
+    if (!c || c.size !== st.size || c.mtimeMs !== st.mtimeMs) {
+      try {
+        const meta = metadata(file);
+        c = { size: st.size, mtimeMs: st.mtimeMs,
+          recs: meta && /^packy/.test(meta.model_provider || '') ? parse(fs.readFileSync(file, 'utf8')) : [] };
+        packyCache.set(file, c);
+      } catch { continue; }
+    }
+    for (const r of c.recs) {
+      if (r.end < since) continue;
+      if (r.id) {
+        if (ids.has(r.id)) continue;
+        ids.add(r.id);
+      }
+      out.push({ ...r, file });
+    }
+  }
+  return out;
+}
+
+module.exports = { records, packyRecords, parse };

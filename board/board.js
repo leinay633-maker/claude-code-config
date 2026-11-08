@@ -35,9 +35,9 @@
   }
   await load('accounts.js');
   let accounts = cleanAccounts(window.ACCOUNTS);
-  await Promise.all([...accounts.map((a) => load(`acct-${a.id}.js`)), ...['cost.js', 'speed.js', 'codex.js'].map(load), loadWarmups(accounts)]);
-  let accts = window.ACCTS || {}, cost = window.COST, speed = window.SPEED, codex = window.CODEX;
-  const live = { accounts: false, cost: false, speed: false, codex: false };
+  await Promise.all([...accounts.map((a) => load(`acct-${a.id}.js`)), ...['cost.js', 'speed.js', 'codex.js', 'packy.js'].map(load), loadWarmups(accounts)]);
+  let accts = window.ACCTS || {}, cost = window.COST, speed = window.SPEED, codex = window.CODEX, packy = window.PACKY;
+  const live = { accounts: false, cost: false, speed: false, codex: false, packy: false };
   const errors = {};
   const isFile = location.protocol === 'file:';
   let pending = !isFile;
@@ -220,6 +220,27 @@
     document.getElementById('others').innerHTML = `<div class="card" id="codex"><div class="top"><span class="letter word">Codex</span>` +
       `<span class="email">${ok ? esc(PLAN[codex.plan] || codex.plan || '') : ''}</span></div>${body}</div>`;
   }
+  function renderPacky() {
+    const el = document.getElementById('packy');
+    if (!packy || packy.status === 'off') { el.innerHTML = ''; return; }
+    const usd = (n) => !finite(n) ? '—' : n > 0 && n < 0.01 ? '<$0.01'
+      : '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const tokens = (n) => n >= 10000 ? `${(n / 10000).toFixed(1)} 万` : String(n);
+    const row = (label, value, note = '') => `<div class="win"><div class="row"><span class="label">${esc(label)}</span>` +
+      `<span class="pct">${esc(value)}</span></div>${note ? `<div class="reset"><span>${esc(note)}</span></div>` : ''}</div>`;
+    const windowRow = (label, w) => row(label, w ? usd(w.usd) : '—', w && w.partial ? `从 ${date(w.since)} 起记录` : '');
+    const r = packy.runs;
+    const tag = packy.route === 'packy' ? '<span class="tag">子代理在走这里</span>' : '<span class="tag dim">订阅用不了时兜底</span>';
+    const failed = packy.status === 'error' ? `<div class="empty">${esc(packy.message || '账单接口读取失败')}</div>` : '';
+    el.innerHTML = '<h2 class="sec">Packy</h2><div class="grid"><div class="card" id="packy-card">' +
+      `<div class="top"><span class="letter word">Packy</span><span class="email">按量计费</span>${tag}</div>${failed}` +
+      (packy.status === 'error' ? '' : windowRow('今天', packy.today) + windowRow('近 7 天', packy.week) +
+        row('累计', usd(packy.total)) + row('令牌额度', packy.limit === null ? '不限' : usd(packy.limit))) +
+      (r ? row('Codex 今天', `${r.sessions} 次`, `输入 ${tokens(r.input)}（缓存 ${tokens(r.cached)}）/ 输出 ${tokens(r.output)} token`) : '') +
+      row(`claude--packy 代理 ${packy.routerPort}`, packy.router ? '运行中' : '未运行') +
+      `<div class="foot">${live.packy ? '实时读取' : '快照'} ${date(packy.at)}（${ago(packy.at)}）${errors.packy ? `<br>${esc(errors.packy)}` : ''}` +
+      '<br>账单接口不返回账户余额</div></div></div>';
+  }
   function render() {
     document.getElementById('now').textContent = `本地时间 ${date(now())}`;
     document.getElementById('status').textContent = isFile ? '离线模式，仅显示本地快照'
@@ -228,6 +249,7 @@
       : Object.keys(errors).length ? '本地快照已读取，部分实时数据暂不可用' : '实时数据已更新';
     renderClaude();
     renderCodex();
+    renderPacky();
   }
   async function request(route) {
     const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 35000);
@@ -240,7 +262,7 @@
   }
   render();
   if (!isFile) {
-    await Promise.all(['accounts', 'cost', 'speed', 'codex'].map(async (kind) => {
+    await Promise.all(['accounts', 'cost', 'speed', 'codex', 'packy'].map(async (kind) => {
       try {
         const data = await request('/' + kind);
         if (kind === 'accounts') {
@@ -250,6 +272,7 @@
         if (kind === 'cost') cost = data;
         if (kind === 'speed') speed = data;
         if (kind === 'codex') codex = data;
+        if (kind === 'packy') packy = data;
         live[kind] = true;
       } catch (error) {
         errors[kind] = error.name === 'TypeError' ? '服务未启动' : error.name === 'AbortError' ? '实时读取超时' : error.message;

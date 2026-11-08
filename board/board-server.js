@@ -7,12 +7,14 @@ const { DIR, ID, accounts, readAccount, codexAuth } = require('./board-config');
 const { readCodex } = require('./codex-snapshot');
 const cost = require('./claude-cost');
 const speed = require('./model-speed');
+const packy = require('./packy-usage');
 
 function createServer(port) {
   const live = {
     '/cost': { read: cost.compute, ttl: 1000 },
     '/speed': { read: speed.compute, ttl: 1000 },
     '/codex': { read: readCodex, ttl: 10000 },
+    '/packy': { read: packy.compute, ttl: 60000 },
   };
   const assets = new Map([['/', 'index.html'], ['/index.html', 'index.html'], ['/board.js', 'board.js'], ['/order.js', 'order.js']]);
   // 端口是 80 时浏览器的 Host 和 Origin 不带端口号
@@ -75,7 +77,7 @@ function createServer(port) {
       } else {
         const name = route.slice(1);
         const match = name.match(/^(acct|warmup)-([a-z0-9-]+)\.js$/);
-        if (name === 'accounts.js' || ['cost.js', 'speed.js', 'codex.js'].includes(name) ||
+        if (name === 'accounts.js' || ['cost.js', 'speed.js', 'codex.js', 'packy.js'].includes(name) ||
           (match && ID.test(match[2]) && ((match[1] === 'warmup' && match[2] === 'codex') ||
             accounts().some((a) => a.id === match[2])))) {
           file = path.join(DIR, name);
@@ -105,6 +107,10 @@ if (require.main === module) {
     const server = createServer(port);
     server.on('error', (error) => { console.error(error.code === 'EADDRINUSE' ? '看板端口已被占用' : '看板服务启动失败'); process.exitCode = 1; });
     server.listen(port, '127.0.0.1', () => console.log(`看板服务 http://127.0.0.1:${port}`));
+    // 今天和近 7 天的 Packy 花费靠采样相减，没人开页面时也要采
+    const sample = () => packy.compute().catch(() => {});
+    sample();
+    setInterval(sample, 600000);
   }
 }
 

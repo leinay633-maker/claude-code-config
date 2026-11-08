@@ -197,7 +197,7 @@ async function data(route) {
 }
 
 async function page(dir, online, search = '?port=8419') {
-  const elements = Object.fromEntries(['hero', 'queue', 'grid', 'others', 'now', 'status', 'offline-hint', 'live-url']
+  const elements = Object.fromEntries(['hero', 'queue', 'grid', 'others', 'packy', 'now', 'status', 'offline-hint', 'live-url']
     .map((id) => [id, { innerHTML: '', textContent: '', hidden: true }]));
   const urls = [], scripts = [];
   const origin = `http://127.0.0.1:${PORT}`;
@@ -240,7 +240,8 @@ async function page(dir, online, search = '?port=8419') {
 async function main() {
   if (process.platform !== 'win32') throw new Error('自测仅支持 Windows');
   const auth = fixtures();
-  Object.assign(process.env, { USERPROFILE: HOME, HOME, CLAUDE_BOARD_DIR: BOARD, CLAUDE_BOARD_PORT: String(PORT),
+  // 清掉 Packy key：自测不能真的去查账单
+  Object.assign(process.env, { PACKYCODE_API_KEY: '', USERPROFILE: HOME, HOME, CLAUDE_BOARD_DIR: BOARD, CLAUDE_BOARD_PORT: String(PORT),
     PATH: [BIN, path.dirname(process.execPath), process.env.PATH].join(path.delimiter) });
   assert.equal(os.homedir(), HOME);
   const config = require('./board-config'), cost = require('./claude-cost'), speed = require('./model-speed');
@@ -413,7 +414,7 @@ async function main() {
   checks.push('全部数据和脚本入口拒绝 null、跨站脚本、其他端口、错误主机及同站跨源请求');
   const nav = { Host: host, 'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'document' };
   for (const route of ['/', '/index.html', '/?port=8419']) assert.equal((await rawRequest(route, nav)).status, 200, route);
-  for (const route of ['/accounts', '/cost', '/board.js', '/acct-a.js', '/accounts.js']) {
+  for (const route of ['/accounts', '/cost', '/packy', '/board.js', '/acct-a.js', '/accounts.js']) {
     assert.equal((await rawRequest(route, nav)).status, 403, route);
   }
   for (const dest of ['iframe', 'script', 'empty']) {
@@ -450,7 +451,7 @@ async function main() {
       assert.ok(result.elements.grid.innerHTML.includes('$0.03'));
       assert.ok(result.elements.grid.innerHTML.includes('$0.06'));
     }
-    assert.equal(online.urls.length, 4);
+    assert.equal(online.urls.length, 5);
     assert.ok(online.urls.every((url) => url.startsWith('http://127.0.0.1:8419/')));
     assert.equal(offline.urls.length, 0);
     assert.equal(online.elements.status.textContent, '实时数据已更新');
@@ -545,6 +546,51 @@ async function main() {
   check('本地文本转义', () => {
     assert.ok(escaped.elements.grid.innerHTML.includes('&lt;img'));
     assert.ok(!escaped.elements.grid.innerHTML.includes('<img'));
+  });
+  // Packy 卡片：本地假账单接口，核对单位换算、基线相减、不限额，以及 key 不进快照
+  const packyKey = 'sk-packy-self-test-key', seenAuth = [];
+  let packyTotal = 12345, packyStatus = 200;
+  const fakeBilling = http.createServer((req, res) => {
+    seenAuth.push(req.headers.authorization);
+    res.writeHead(packyStatus, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(req.url.endsWith('/usage') ? { total_usage: packyTotal } : { hard_limit_usd: 100000000 }));
+  });
+  await new Promise((resolve) => fakeBilling.listen(0, '127.0.0.1', resolve));
+  const codexConfig = path.join(HOME, '.codex', 'config.toml');
+  const savedConfig = fs.existsSync(codexConfig) ? fs.readFileSync(codexConfig, 'utf8') : null;
+  write(codexConfig, `[model_providers.packy_sol]\r\nname = "x"\r\nbase_url = "http://127.0.0.1:${fakeBilling.address().port}/v1/"\r\n\r\n[other]\r\nbase_url = "http://wrong.invalid"\r\n`);
+  const packyMod = require('./packy-usage');
+  const packyOff = await packyMod.compute();
+  process.env.PACKYCODE_API_KEY = packyKey;
+  write(path.join(BOARD, 'packy-usage.log'), `${now - 40 * 86400}\t100\n${now - 8 * 86400}\t100.0000\n${now - 86400 * 2}\t110.0000\n`);
+  const packyOk = await packyMod.compute();
+  const packyPage = await page(BOARD, false);
+  const packySnapshot = fs.readFileSync(path.join(BOARD, 'packy.json'), 'utf8') + fs.readFileSync(path.join(BOARD, 'packy.js'), 'utf8');
+  write(path.join(BOARD, 'packy.js'), `window.PACKY=${JSON.stringify({ ...packyOk, route: 'packy' })};`);
+  const packyRoutePage = await page(BOARD, false);
+  packyStatus = 401;
+  const packyBad = await packyMod.compute();
+  const packyBadPage = await page(BOARD, false);
+  process.env.PACKYCODE_API_KEY = '';
+  await new Promise((resolve) => fakeBilling.close(resolve));
+  if (savedConfig === null) fs.rmSync(codexConfig); else write(codexConfig, savedConfig);
+  fs.rmSync(path.join(BOARD, 'packy.json')); fs.rmSync(path.join(BOARD, 'packy.js')); fs.rmSync(path.join(BOARD, 'packy-usage.log'));
+  const packyGone = await page(BOARD, false);
+  check('Packy 卡片：单位换算、窗口相减、不限额、失败提示，key 不进快照', () => {
+    assert.equal(packyOff.status, 'off');
+    assert.equal(packyOk.status, 'ok'); near(packyOk.total, 123.45);
+    assert.equal(packyOk.limit, null); near(packyOk.week.usd, 23.45); assert.equal(packyOk.week.partial, false);
+    near(packyOk.today.usd, 13.45);
+    assert.ok(seenAuth.every((value) => value === `Bearer ${packyKey}`));
+    assert.ok(!packySnapshot.includes(packyKey));
+    const html = packyPage.elements.packy.innerHTML;
+    assert.ok(html.includes('$123.45') && html.includes('$23.45') && html.includes('不限') && html.includes('订阅用不了时兜底'));
+    assert.ok(packyRoutePage.elements.packy.innerHTML.includes('子代理在走这里'));
+    assert.equal(packyBad.status, 'error'); assert.ok(packyBad.message.includes('HTTP 401'));
+    assert.ok(packyBadPage.elements.packy.innerHTML.includes('HTTP 401'));
+    assert.equal(packyGone.elements.packy.innerHTML, '');
+    const partial = packyMod.spent([{ at: 500, total: 1 }], 100, 3);
+    assert.deepEqual(partial, { usd: 2, since: 500, partial: true });
   });
   // 没有额度快照的号也要排进切号顺序，不能让整条顺序消失
   write(path.join(BOARD, 'accounts.js'), `window.ACCOUNTS=${JSON.stringify([...accountList, { id: 'new-3', configDir: '.claude-new-3' }])};`);
